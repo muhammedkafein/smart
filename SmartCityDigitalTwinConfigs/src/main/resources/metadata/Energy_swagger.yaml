@@ -1,0 +1,33 @@
+openapi: 3.0.1
+info:
+  title: Energy
+  description: API Definition of Energy
+  version: 1.0.0
+servers:
+- url: http://localhost:8290/Energy
+paths:
+  /GetTotalEnergyConsumptionForLastThreeYears:
+    get:
+      responses:
+        default:
+          description: Default response
+  /GetTotalEnergyConsumptionByYearAndEnergyType:
+    get:
+      responses:
+        default:
+          description: Default response
+  /GetTotalEnergyConsumptionCostByYearAndEnergyType:
+    get:
+      responses:
+        default:
+          description: Default response
+  /GetTotalCO2ByYearAndEnergyType:
+    get:
+      responses:
+        default:
+          description: Default response
+  /GetTotalEnergyConsumptionByYearAndBuildingId:
+    get:
+      responses:
+        default:
+          description: Default response

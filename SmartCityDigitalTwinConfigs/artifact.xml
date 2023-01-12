@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?><artifacts>
+    <artifact name="Energy" groupId="com.smartcitydigitaltwin.api" version="1.0.0" type="synapse/api" serverRole="EnterpriseServiceBus">
+        <file>src/main/synapse-config/api/Energy.xml</file>
+    </artifact>
+    <artifact name="Energy_swagger" groupId="com.smartcitydigitaltwin.metadata" version="1.0.0" type="synapse/metadata" serverRole="EnterpriseServiceBus">
+        <file>src/main/resources/metadata/Energy_swagger.yaml</file>
+    </artifact>
+    <artifact name="Energy_metadata" groupId="com.smartcitydigitaltwin.metadata" version="1.0.0" type="synapse/metadata" serverRole="EnterpriseServiceBus">
+        <file>src/main/resources/metadata/Energy_metadata.yaml</file>
+    </artifact>
+</artifacts>

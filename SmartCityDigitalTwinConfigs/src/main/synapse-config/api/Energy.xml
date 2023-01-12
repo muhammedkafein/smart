@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/Energy" name="Energy" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="GET" url-mapping="/GetTotalEnergyConsumptionForLastThreeYears">
+        <inSequence>
+            <property description="Year Property" expression="$url:q" name="uri.var.q" scope="default" type="STRING"/>
+            <class description="Url Replace" name="com.smartcity.mediators.UrlReplace"/>
+            <call>
+                <endpoint>
+                    <http method="get" uri-template="http://192.168.40.104:1026/ngsi-ld/v1/entities?q={uri.var.q}&amp;type=ConsumptionCost&amp;options=keyValues">
+                        <suspendOnFailure>
+                            <initialDuration>-1</initialDuration>
+                            <progressionFactor>-1</progressionFactor>
+                            <maximumDuration>0</maximumDuration>
+                        </suspendOnFailure>
+                        <markForSuspension>
+                            <retriesBeforeSuspension>0</retriesBeforeSuspension>
+                        </markForSuspension>
+                    </http>
+                </endpoint>
+            </call>
+            <script description="Fiware Mapping" language="js"><![CDATA[var consumptions = mc.getPayloadJSON();
+
+
+var totalEnergyConsumeds = [];
+var currentYear = new Date().getFullYear();
+for (var i = 0; i < 3; i++) {
+  var year = Number(currentYear) - i;
+
+  var consamptionsByDate = [];
+
+  for (var k = 0; k < consumptions.length; k++) {
+
+      if (consumptions[k].year === year) {
+          consamptionsByDate.push(consumptions[k]);
+      }
+  }
+
+  var totalEnergyConsumed = 0;
+  var totalEnergyAmount = 0;
+  var totalCo2Emission = 0;
+  var electricityConsumed = 0;
+  var gasConsumed = 0;
+  var fuelConsumed = 0;
+
+  for (var j = 0; j < consamptionsByDate.length; j++) {
+
+      var energyConsumedAndCost = consamptionsByDate[j].energyConsumedAndCost;
+
+      for (var t = 0; t < energyConsumedAndCost.length; t++) {
+
+          var currentEnergyConsumedAndCost = energyConsumedAndCost[t];
+
+          totalEnergyConsumed += currentEnergyConsumedAndCost.value.energyConsumed.value.value.value;
+          totalEnergyAmount += currentEnergyConsumedAndCost.value.energyAmount.value.value.value;
+          totalCo2Emission += currentEnergyConsumedAndCost.value.co2Emission.value.value.value;
+
+          if (currentEnergyConsumedAndCost.value.energyType.value === "Electricity") {
+              electricityConsumed += currentEnergyConsumedAndCost.value.energyConsumed.value.value.value;
+          }
+
+          if (currentEnergyConsumedAndCost.value.energyType.value === "Gas") {
+              gasConsumed += currentEnergyConsumedAndCost.value.gasConsumed.value.value.value;
+          }
+
+          if (currentEnergyConsumedAndCost.value.energyType.value === "Fuel") {
+              fuelConsumed += currentEnergyConsumedAndCost.value.fuelConsumed.value.value.value;
+          }
+      }
+  }
+
+  totalEnergyConsumeds.push({
+      year: year,
+      totalEnergyConsumed: totalEnergyConsumed,
+      totalEnergyAmount: totalEnergyAmount,
+      totalCo2Emission: totalCo2Emission,
+      electricityConsumed: electricityConsumed,
+      gasConsumed: gasConsumed,
+      fuelConsumed: fuelConsumed
+  })
+}
+  
+			mc.setPayloadJSON(JSON.stringify(totalEnergyConsumeds));]]></script>
+            <property name="messageType" scope="axis2" type="STRING" value="application/json"/>
+            <jsontransform description="Json Convert">
+                <property name="synapse.commons.json.output.autoPrimitive" value="true"/>
+                <property name="synapse.commons.enableXmlNullForEmptyElement" value="false"/>
+            </jsontransform>
+            <respond/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+    <resource methods="GET" url-mapping="/GetTotalEnergyConsumptionByYearAndEnergyType">
+        <inSequence>
+            <property description="Year Property" expression="$url:q" name="uri.var.q" scope="default" type="STRING"/>
+            <property description="EnergyType Property" expression="$url:energyType" name="uri.var.energyType" scope="default" type="STRING"/>
+            <class description="Url Replace" name="com.smartcity.mediators.UrlReplace"/>
+            <call>
+                <endpoint>
+                    <http method="get" uri-template="http://192.168.40.104:1026/ngsi-ld/v1/entities?q={uri.var.q}&amp;type=ConsumptionCost&amp;options=keyValues">
+                        <suspendOnFailure>
+                            <initialDuration>-1</initialDuration>
+                            <progressionFactor>-1</progressionFactor>
+                            <maximumDuration>0</maximumDuration>
+                        </suspendOnFailure>
+                        <markForSuspension>
+                            <retriesBeforeSuspension>0</retriesBeforeSuspension>
+                        </markForSuspension>
+                    </http>
+                </endpoint>
+            </call>
+            <script description="Fiware Mapping" language="js"><![CDATA[var consumptions = mc.getPayloadJSON();
+             var energyType = mc.getProperty('uri.var.energyType');
+		     var totalConsumptionByMonths = [];
+			 for (var i = 0; i < consumptions.length; i++) 
+			 {
+		  		var consumption = consumptions[i];
+		  		var energyConsumedAndCost = consumption.energyConsumedAndCost;
+		
+		  		for (var j = 0; j < energyConsumedAndCost.length; j++) 
+		  		{
+		    		var energy = energyConsumedAndCost[j];
+		    		if (String(energy.value.energyType.value) !== String(energyType))
+		    		{
+		    			continue;
+		    		}
+		    		
+				     totalConsumptionByMonths.push({
+					    totalConsumed: energy.value.energyConsumed.value.value.value,
+					    month: consumption.month,
+					    buildingUseType: consumption.buildingUseType,
+					    buildingUseTypeName: consumption.buildingUseTypeName
+		    		});
+		  		}
+			  }
+			 
+			 var buildingUseTypeAndMonths = [];
+
+			for (var i = 0; i < totalConsumptionByMonths.length; i++) 
+			{
+			  var element = totalConsumptionByMonths[i];
+			
+			  var hasElement = false;
+			  for (var j = 0; j < buildingUseTypeAndMonths.length; j++) 
+			  {
+			    var buildingUseTypeAndMonth = buildingUseTypeAndMonths[j];
+			
+			    if (buildingUseTypeAndMonths.length > 0 && buildingUseTypeAndMonth.month === element.month && buildingUseTypeAndMonth.buildingUseType === element.buildingUseType)
+			    {
+			    	hasElement = true;
+			    }
+			      
+			  }
+			
+			  if (hasElement) {
+			    continue;
+			  }
+			
+			  buildingUseTypeAndMonths.push({
+			    buildingUseType: element.buildingUseType,
+			    buildingUseTypeName: element.buildingUseTypeName,
+			    month: element.month
+			  });
+			}
+			
+			//gruplama yapıldı
+			var chart = [];
+			for (var i = 0; i < buildingUseTypeAndMonths.length; i++)
+			{
+			  var buildingUseTypeAndMonth = buildingUseTypeAndMonths[i];
+			  var totalValue = 0;
+			
+			  for (var j = 0; j < totalConsumptionByMonths.length; j++) 
+			  {
+			    var totalConsumptionByMonth = totalConsumptionByMonths[j];
+			
+			    if (totalConsumptionByMonth.month === buildingUseTypeAndMonth.month && totalConsumptionByMonth.buildingUseType === buildingUseTypeAndMonth.buildingUseType)
+			      totalValue += totalConsumptionByMonth.totalConsumed;
+			  }
+
+			  var months = [
+			    "Ocak",
+			    "Şubat",
+			    "Mart",
+			    "Nisan",
+			    "Mayıs",
+			    "Haziran",
+			    "Temmuz",
+			    "Ağustos",
+			    "Eylül",
+			    "Ekim",
+			    "Kasım",
+			    "Aralık"
+			  ];
+			
+			  chart.push({
+			    s: buildingUseTypeAndMonth.buildingUseTypeName,
+			    x: months[buildingUseTypeAndMonth.month - 1],
+			    y: totalValue
+			  });
+			   
+			}
+			
+			mc.setPayloadJSON(JSON.stringify(chart));]]></script>
+            <property name="messageType" scope="axis2" type="STRING" value="application/json"/>
+            <jsontransform description="Json Convert">
+                <property name="synapse.commons.json.output.autoPrimitive" value="true"/>
+                <property name="synapse.commons.enableXmlNullForEmptyElement" value="false"/>
+            </jsontransform>
+            <respond/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+    <resource methods="GET" url-mapping="/GetTotalEnergyConsumptionCostByYearAndEnergyType">
+        <inSequence>
+            <property description="Year Property" expression="$url:q" name="uri.var.q" scope="default" type="STRING"/>
+            <property description="EnergyType Property" expression="$url:energyType" name="uri.var.energyType" scope="default" type="STRING"/>
+            <class description="Url Replace" name="com.smartcity.mediators.UrlReplace"/>
+            <call>
+                <endpoint>
+                    <http method="get" uri-template="http://192.168.40.104:1026/ngsi-ld/v1/entities?q={uri.var.q}&amp;type=ConsumptionCost&amp;options=keyValues">
+                        <suspendOnFailure>
+                            <initialDuration>-1</initialDuration>
+                            <progressionFactor>-1</progressionFactor>
+                            <maximumDuration>0</maximumDuration>
+                        </suspendOnFailure>
+                        <markForSuspension>
+                            <retriesBeforeSuspension>0</retriesBeforeSuspension>
+                        </markForSuspension>
+                    </http>
+                </endpoint>
+            </call>
+            <script description="Fiware Mapping" language="js"><![CDATA[var consumptions = mc.getPayloadJSON();
+            var energyType = mc.getProperty('uri.var.energyType');
+		    
+		    var totalConsumptionCostByMonths = [];
+			for (var i = 0; i < consumptions.length; i++) {
+			  var consumption = consumptions[i];
+			  var energyConsumedAndCost = consumption.energyConsumedAndCost;
+			
+			  for (var j = 0; j < energyConsumedAndCost.length; j++) {
+			    var energy = energyConsumedAndCost[j];
+			    if (String(energy.value.energyType.value) !== String(energyType)) {
+			      continue;
+			    }
+			
+			    totalConsumptionCostByMonths.push({
+			      totalConsumedCost: energy.value.energyAmount.value.value.value,
+			      month: consumption.month,
+			      buildingUseType: consumption.buildingUseType,
+			      buildingUseTypeName: consumption.buildingUseTypeName,
+			    });
+			  }
+			}
+
+			var buildingUseTypeAndMonths = [];
+			
+			for (var i = 0; i < totalConsumptionCostByMonths.length; i++) {
+			  var element = totalConsumptionCostByMonths[i];
+			
+			  var hasElement = false;
+			  for (var j = 0; j < buildingUseTypeAndMonths.length; j++) {
+			    var buildingUseTypeAndMonth = buildingUseTypeAndMonths[j];
+			
+			    if (
+			      buildingUseTypeAndMonths.length > 0 &&
+			      buildingUseTypeAndMonth.month === element.month &&
+			      buildingUseTypeAndMonth.buildingUseType === element.buildingUseType
+			    ) {
+			      hasElement = true;
+			    }
+			  }
+			
+			  if (hasElement) {
+			    continue;
+			  }
+			
+			  buildingUseTypeAndMonths.push({
+			    buildingUseType: element.buildingUseType,
+			    buildingUseTypeName: element.buildingUseTypeName,
+			    month: element.month,
+			  });
+			}
+			
+			//gruplama yapıldı
+			var chart = [];
+			for (var i = 0; i < buildingUseTypeAndMonths.length; i++) {
+			  var buildingUseTypeAndMonth = buildingUseTypeAndMonths[i];
+			  var totalValue = 0;
+			
+			  for (var j = 0; j < totalConsumptionCostByMonths.length; j++) {
+			    var totalConsumptionCostByMonth = totalConsumptionCostByMonths[j];
+			
+			    if (
+			      totalConsumptionCostByMonth.month === buildingUseTypeAndMonth.month &&
+			      totalConsumptionCostByMonth.buildingUseType ===
+			        buildingUseTypeAndMonth.buildingUseType
+			    )
+			      totalValue += totalConsumptionCostByMonth.totalConsumedCost;
+			  }
+			
+			  var months = [
+			    'Ocak',
+			    'Şubat',
+			    'Mart',
+			    'Nisan',
+			    'Mayıs',
+			    'Haziran',
+			    'Temmuz',
+			    'Ağustos',
+			    'Eylül',
+			    'Ekim',
+			    'Kasım',
+			    'Aralık',
+			  ];
+			
+			  chart.push({
+			    s: buildingUseTypeAndMonth.buildingUseTypeName,
+			    x: months[buildingUseTypeAndMonth.month - 1],
+			    y: totalValue,
+			  });
+			} 
+			
+			mc.setPayloadJSON(JSON.stringify(chart));]]></script>
+            <property name="messageType" scope="axis2" type="STRING" value="application/json"/>
+            <jsontransform description="Json Convert">
+                <property name="synapse.commons.json.output.autoPrimitive" value="true"/>
+                <property name="synapse.commons.enableXmlNullForEmptyElement" value="false"/>
+            </jsontransform>
+            <respond/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+    <resource methods="GET" url-mapping="/GetTotalCO2ByYearAndEnergyType">
+        <inSequence>
+            <property description="Year Property" expression="$url:q" name="uri.var.q" scope="default" type="STRING"/>
+            <property description="EnergyType Property" expression="$url:energyType" name="uri.var.energyType" scope="default" type="STRING"/>
+            <class description="Url Replace" name="com.smartcity.mediators.UrlReplace"/>
+            <call>
+                <endpoint>
+                    <http method="get" uri-template="http://192.168.40.104:1026/ngsi-ld/v1/entities?q={uri.var.q}&amp;type=ConsumptionCost&amp;options=keyValues">
+                        <suspendOnFailure>
+                            <initialDuration>-1</initialDuration>
+                            <progressionFactor>-1</progressionFactor>
+                            <maximumDuration>0</maximumDuration>
+                        </suspendOnFailure>
+                        <markForSuspension>
+                            <retriesBeforeSuspension>0</retriesBeforeSuspension>
+                        </markForSuspension>
+                    </http>
+                </endpoint>
+            </call>
+            <script description="Fiware Mapping" language="js"><![CDATA[var consumptions = mc.getPayloadJSON();
+             var energyType = mc.getProperty('uri.var.energyType');
+		     var totalConsumptionByMonths = [];
+			 for (var i = 0; i < consumptions.length; i++) 
+			 {
+		  		var consumption = consumptions[i];
+		  		var energyConsumedAndCost = consumption.energyConsumedAndCost;
+		
+		  		for (var j = 0; j < energyConsumedAndCost.length; j++) 
+		  		{
+		    		var energy = energyConsumedAndCost[j];
+		    		if (String(energy.value.energyType.value) !== String(energyType))
+		    		{
+		    			continue;
+		    		}
+		    		
+				     totalConsumptionByMonths.push({
+					    co2Emission: energy.value.co2Emission.value.value.value,
+					    month: consumption.month,
+					    buildingUseType: consumption.buildingUseType,
+					    buildingUseTypeName: consumption.buildingUseTypeName
+		    		});
+		  		}
+			  }
+			 
+			 var buildingUseTypeAndMonths = [];
+
+			for (var i = 0; i < totalConsumptionByMonths.length; i++) 
+			{
+			  var element = totalConsumptionByMonths[i];
+			
+			  var hasElement = false;
+			  for (var j = 0; j < buildingUseTypeAndMonths.length; j++) 
+			  {
+			    var buildingUseTypeAndMonth = buildingUseTypeAndMonths[j];
+			
+			    if (buildingUseTypeAndMonths.length > 0 && buildingUseTypeAndMonth.month === element.month && buildingUseTypeAndMonth.buildingUseType === element.buildingUseType)
+			    {
+			    	hasElement = true;
+			    }
+			      
+			  }
+			
+			  if (hasElement) {
+			    continue;
+			  }
+			
+			  buildingUseTypeAndMonths.push({
+			    buildingUseType: element.buildingUseType,
+			    buildingUseTypeName: element.buildingUseTypeName,
+			    month: element.month
+			  });
+			}
+			
+			//gruplama yapıldı
+			var chart = [];
+			for (var i = 0; i < buildingUseTypeAndMonths.length; i++)
+			{
+			  var buildingUseTypeAndMonth = buildingUseTypeAndMonths[i];
+			  var totalValue = 0;
+			
+			  for (var j = 0; j < totalConsumptionByMonths.length; j++) 
+			  {
+			    var totalConsumptionByMonth = totalConsumptionByMonths[j];
+			
+			    if (totalConsumptionByMonth.month === buildingUseTypeAndMonth.month && totalConsumptionByMonth.buildingUseType === buildingUseTypeAndMonth.buildingUseType)
+			      totalValue += totalConsumptionByMonth.co2Emission;
+			  }
+
+			  var months = [
+			    "Ocak",
+			    "Şubat",
+			    "Mart",
+			    "Nisan",
+			    "Mayıs",
+			    "Haziran",
+			    "Temmuz",
+			    "Ağustos",
+			    "Eylül",
+			    "Ekim",
+			    "Kasım",
+			    "Aralık"
+			  ];
+			
+			  chart.push({
+			    s: buildingUseTypeAndMonth.buildingUseTypeName,
+			    x: months[buildingUseTypeAndMonth.month - 1],
+			    y: totalValue
+			  });
+			   
+			}
+			
+			mc.setPayloadJSON(JSON.stringify(chart));]]></script>
+            <property name="messageType" scope="axis2" type="STRING" value="application/json"/>
+            <jsontransform description="Json Convert">
+                <property name="synapse.commons.json.output.autoPrimitive" value="true"/>
+                <property name="synapse.commons.enableXmlNullForEmptyElement" value="false"/>
+            </jsontransform>
+            <respond/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+    <resource methods="GET" url-mapping="/GetTotalEnergyConsumptionByYearAndBuildingId">
+        <inSequence>
+            <property description="Year Property" expression="$url:q" name="uri.var.q" scope="default" type="STRING"/>
+            <property description="EnergyType Property" expression="$url:energyType" name="uri.var.energyType" scope="default" type="STRING"/>
+            <class description="Url Replace" name="com.smartcity.mediators.UrlReplace"/>
+            <call>
+                <endpoint>
+                    <http method="get" uri-template="http://192.168.40.104:1026/ngsi-ld/v1/entities?q={uri.var.q}&amp;type=ConsumptionCost&amp;options=keyValues">
+                        <suspendOnFailure>
+                            <initialDuration>-1</initialDuration>
+                            <progressionFactor>-1</progressionFactor>
+                            <maximumDuration>0</maximumDuration>
+                        </suspendOnFailure>
+                        <markForSuspension>
+                            <retriesBeforeSuspension>0</retriesBeforeSuspension>
+                        </markForSuspension>
+                    </http>
+                </endpoint>
+            </call>
+            <script description="Fiware Mapping" language="js"><![CDATA[var consumptions = mc.getPayloadJSON();
+             var energyType = mc.getProperty('uri.var.energyType');
+		     var totalConsumptionByMonths = [];
+			 for (var i = 0; i < consumptions.length; i++) 
+			 {
+		  		var consumption = consumptions[i];
+		  		var energyConsumedAndCost = consumption.energyConsumedAndCost;
+		
+		  		for (var j = 0; j < energyConsumedAndCost.length; j++) 
+		  		{
+		    		var energy = energyConsumedAndCost[j];
+		    		if (String(energy.value.energyType.value) !== String(energyType))
+		    		{
+		    			continue;
+		    		}
+		    		
+				     totalConsumptionByMonths.push({
+					    co2Emission: energy.value.co2Emission.value.value.value,
+					    month: consumption.month,
+					    buildingUseType: consumption.buildingUseType,
+					    buildingUseTypeName: consumption.buildingUseTypeName
+		    		});
+		  		}
+			  }
+			 
+			 var buildingUseTypeAndMonths = [];
+
+			for (var i = 0; i < totalConsumptionByMonths.length; i++) 
+			{
+			  var element = totalConsumptionByMonths[i];
+			
+			  var hasElement = false;
+			  for (var j = 0; j < buildingUseTypeAndMonths.length; j++) 
+			  {
+			    var buildingUseTypeAndMonth = buildingUseTypeAndMonths[j];
+			
+			    if (buildingUseTypeAndMonths.length > 0 && buildingUseTypeAndMonth.month === element.month && buildingUseTypeAndMonth.buildingUseType === element.buildingUseType)
+			    {
+			    	hasElement = true;
+			    }
+			      
+			  }
+			
+			  if (hasElement) {
+			    continue;
+			  }
+			
+			  buildingUseTypeAndMonths.push({
+			    buildingUseType: element.buildingUseType,
+			    buildingUseTypeName: element.buildingUseTypeName,
+			    month: element.month
+			  });
+			}
+			
+			//gruplama yapıldı
+			var chart = [];
+			for (var i = 0; i < buildingUseTypeAndMonths.length; i++)
+			{
+			  var buildingUseTypeAndMonth = buildingUseTypeAndMonths[i];
+			  var totalValue = 0;
+			
+			  for (var j = 0; j < totalConsumptionByMonths.length; j++) 
+			  {
+			    var totalConsumptionByMonth = totalConsumptionByMonths[j];
+			
+			    if (totalConsumptionByMonth.month === buildingUseTypeAndMonth.month && totalConsumptionByMonth.buildingUseType === buildingUseTypeAndMonth.buildingUseType)
+			      totalValue += totalConsumptionByMonth.co2Emission;
+			  }
+
+			  var months = [
+			    "Ocak",
+			    "Şubat",
+			    "Mart",
+			    "Nisan",
+			    "Mayıs",
+			    "Haziran",
+			    "Temmuz",
+			    "Ağustos",
+			    "Eylül",
+			    "Ekim",
+			    "Kasım",
+			    "Aralık"
+			  ];
+			
+			  chart.push({
+			    s: buildingUseTypeAndMonth.buildingUseTypeName,
+			    x: months[buildingUseTypeAndMonth.month - 1],
+			    y: totalValue
+			  });
+			   
+			}
+			
+			mc.setPayloadJSON(JSON.stringify(chart));]]></script>
+            <property name="messageType" scope="axis2" type="STRING" value="application/json"/>
+            <jsontransform description="Json Convert">
+                <property name="synapse.commons.json.output.autoPrimitive" value="true"/>
+                <property name="synapse.commons.enableXmlNullForEmptyElement" value="false"/>
+            </jsontransform>
+            <respond/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+</api>
